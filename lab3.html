@@ -1,0 +1,380 @@
+<html>
+<head>
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+	<style type="text/css">
+
+        .scroll-box {
+            overflow-y: scroll;
+            height: 200px;
+          /*  padding: 1rem*/
+        }
+        .autoPadding {
+        	margin: 15px
+        }
+
+	</style>
+	<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+</head>
+<body>
+
+	<div class = "row" id="page-wrapper">
+		<br>
+        <h1 class = "col-md-12 text-center" style = "height: 100px; ">Placement Policies</h1>
+        <br>
+        <div class = "col-3">
+            Upload Job list: 
+            <input type="file" id="fileInput">
+        </div>
+       
+        <div class = "col-3">
+            Upload Memory list: 
+            <input type="file" id="fileInput2">
+        </div>
+        
+     
+         <div class = "row col-12">
+        	<div class="col-3"> side a
+	  			<div class="card-header">
+				    Job List
+				  </div>
+				  <div class="card-block scroll-box">
+				    
+				     <pre id = "fileDisplayArea"></pre>
+				  </div>
+			</div>
+			<div class="col-3"> side b
+	  			<div class="card-header" >
+				    Memory List
+				  </div>
+				  <div class="card-block scroll-box">
+				    
+				     <pre id = "fileDisplayArea2"></pre>
+				  </div>
+			</div>
+			 <div class=" col-6">
+        			<div class = "row col-12">
+        			<span class="col-6">
+        				<h1 style="display:inline">Time : <h1 style="display:inline" id = "counter">0</h1></h1>
+        				
+        			</span>
+        			<span class="col-6"><button id = "play"  class= "btn btn-primary">Play</button></span>
+        		</div>
+				 
+			
+			 
+   
+			<div class = "col-12" id = "tableContainer">
+					<table id = "memTable" class="table table-inverse">
+						<thead id ="tableHead">
+							<tr>
+								<th>Memory Partition</th>
+								<th>Memory Size</th>
+								<th>Job Number</th>
+								<th>Job Size</th>
+								<th>Time Remaining</th>
+							</tr>
+						</thead>
+						<tbody id = "tableBody"></tbody>
+					</table>
+			</div>
+	   </div>
+        </div>
+       
+	
+</div>
+</body>
+<script type="text/javascript">
+window.onload = function() {
+        $("#tables").hide()
+        var fileInput = document.getElementById('fileInput');
+        var fileDisplayArea = document.getElementById('fileDisplayArea');
+        var fileDisplayArea2 = document.getElementById('fileDisplayArea2');
+        var jobStream = []
+        var jobTime = []
+        var memory = []
+        var jobQueue = []
+     	var finishedProcesses = []
+     	var buffer = []
+     	var time
+          var re = /\s+/
+           //var state = 0
+         fileInput.addEventListener('change', function(e) {
+            var file = fileInput.files[0];
+            var textType = /text.*/;
+           
+         
+
+            if (file.type.match(textType)) {
+                var reader = new FileReader();
+
+                reader.onload = function(e) {
+                	//console.log(this.result)
+                    fileDisplayArea.innerText = reader.result;
+                    var lines = this.result.split('\n');
+                    //console.log(lines)
+    				listParser("job", lines)
+    				
+    				startAllocation()
+    				
+                }
+
+
+
+                reader.readAsText(file); 
+
+                  
+
+            } else {
+                fileDisplayArea.innerText = "File not supported!"
+            }
+            
+        });
+           function print(message) {
+        	console.log(JSON.stringify(message))
+        }
+         fileInput2.addEventListener('change', function(e) {
+            var file = fileInput2.files[0];
+            var textType = /text.*/;
+         
+
+            if (file.type.match(textType)) {
+                var reader2 = new FileReader();
+
+                reader2.onload = function(e) {
+                	//console.log(this.result)
+               console.log(reader2.result)
+                    fileDisplayArea2.innerText = reader2.result;
+                    var lines = this.result.split('\n');
+                    //console.log(lines)
+    				listParser("memory", lines)
+    				startAllocation();
+                }
+
+
+                reader2.readAsText(file); 
+                 
+                  
+
+            } else {
+                fileDisplayArea2.innerText = "File not supported!"
+            }
+           
+        });
+         function startAllocation () {
+         	if(memory.length!=0 && jobStream.length!=0) {
+         		firstFit(memory, jobStream)
+         	}
+         }
+         $("#play").click(function() {
+         	var state = $("#play").hasClass("btn-success")
+         	if(state) {
+         		 $("#play").removeClass("btn-success")
+         		 $("#play").addClass("btn-danger")	
+         	} else {
+         		 $("#play").removeClass("btn-danger")
+         		$("#play").addClass("btn-success")
+         	}
+         })
+         function toggleState() {
+         	if(state== true) {
+         		state = false
+         	} else {
+         		state = true
+         	}
+         }
+         function listParser (listType, lines) {
+         	if(listType == "job") {
+         		for(var line = 1; line < lines.length; line++){
+      					var word = lines[line];
+      					word = word.split(re)
+      					var job = {
+      						number : word[0],
+      						time : word[1],
+      						size : word[2]
+
+      					}
+
+      				jobStream.push(job)
+      			}
+         	}
+         	if (listType == "memory") {
+         		for(var line = 1; line < lines.length; line++){
+      					var word = lines[line];
+      					word = word.split(re)
+      					var block = {
+      						number : word[0],
+      						size : word[1]
+
+      					}
+
+      				memory.push(block)
+         	}
+
+         }
+     }
+
+   async function firstFit(memory, jobStream) {
+     	//i - jobStream counter
+     	
+     	time = 0 
+     	var x = 0
+     	var i = 0
+     	var assigned = false
+
+     	//for(var i = 0; i < jobStream.length; i++) {
+     //	while(i < jobStream.length) {
+     		//if(state) {
+
+     	console.log("jobStream.length = " + jobStream.length)
+     		while(i < jobStream.length) {
+     			console.log("current index = " + i)
+     			console.log("looping through buffer")
+     			for(var ctr = 0; ctr < buffer.length; ctr++) {
+
+     				var unassignedJob = buffer[ctr]
+     				console.log("unassignedJob.number = " + unassignedJob.number)
+     				if(assignJob(unassignedJob.number-1)) {
+     					console.log("buffer job " + unassignedJob.number + " is finally allocated memory.")
+     					buffer.splice(unassignedJob.number-1) //remove from buffer if it is allocated with memory
+     				}
+     				jobTime = updateRemainingTime(jobTime) //decrease time for occupying job
+					time ++
+     				updateTable(time, jobQueue, memory, jobTime)
+					await sleep(5000)
+     			}
+     			console.log("now check next index")
+     			if(!assignJob(i)) { //if next job is not allocated memory, add it to buffer
+     				console.log("job " + i + "is not assigned so add to buffer")
+     				buffer.push( jobStream[ i ] ) 
+     			}else {
+     				console.log("job " + i + "is allocated memory.")
+     			}
+     			i++ //move to the next job
+     			jobTime = updateRemainingTime(jobTime) //decrease time for occupying job
+				time ++
+     			updateTable(time, jobQueue, memory, jobTime)
+				await sleep(5000)
+		 	}
+		 	for(var ctr = 0; ctr < buffer.length; ctr++) { //if there are still remaining 
+     				assignJob(buffer.number-1)
+     		}
+     		
+     			
+     }
+     			
+     
+     async function assignJob (i) {
+     	var j = 0
+     	var assigned = false
+     	while (j < memory.length) {
+     		if(!jobTime[j]) {
+		     	jobTime[j] = 0
+		     } 
+ 			if(jobTime[j] == 0) { //no job exists
+ 				console.log("i =" + i + "can be assigned to memory " + j)
+	 			if(memory[j].size >=jobStream[i].size) { //check if memory can accommodate 
+	 				assigned = true
+	 				x = j
+	 				jobQueue[j] = jobStream[i]
+	 				jobTime[j] = jobStream[i].time
+	 				break;
+					}
+			}
+     	j++
+     	
+		
+     }
+   
+     return assigned;
+     
+
+
+ }
+     async function bestFit(memory, jobStream) {
+     	//offset -->  current Index of memory
+     	var assignedJob = []
+     	var offset = 0
+     	var sortedMemory = JSON.parse(JSON.stringify(memory))
+     	for(var i = 0; i < jobStream.length; i++) {
+     		sortedMemory.sort(sortOnSize)
+     		for(var j = 0; j< memory.length; j++) {
+     			if(!assignedJob[j]) {
+     				assignedJob[j] = {
+     					time: 0,
+     					number: ''
+     				}
+     			} 
+ 				if(assignedJob[j].time == 0) { //no job exists
+ 					if(memory[j].size >=jobStream[i].size) { //check if memory can accommodate 
+ 						x = j
+ 						jobQueue[j] = jobStream[i]
+ 						assignedJob[j].time = jobStream[i].time
+ 						assignedJob[j].number = jobStream[i].number
+ 						break;
+ 					}
+ 				} else {
+
+     				//if there is an occupying job, move to the next
+ 				}
+ 				assignedJob[j] = decreaseRemainingTime(assignedJob[j])
+     		} 
+     		
+     		time ++  //increaste time
+     		updateTable(time, jobQueue, memory, jobTime)
+
+     		await sleep(1000)
+     }
+ }
+    var sortOnOrder = function (a,b) {
+    	return a.number - b.number
+    }
+    var sortOnSize = function (a,b) { //to sort memory
+		return a.size- b.size
+	}
+     function updateRemainingTime(jobTime) {
+     	for(var i = 0; i < jobTime.length; i++) {
+     		if(jobTime[i]>0) {
+     			jobTime[i] --
+     		} 
+     	}
+     	return jobTime
+     }
+     function decreaseRemainingTime(job) {
+     	if(job.time > 0) {
+     		job.time--
+     	}
+     	
+     	
+     	return job
+     }
+     function sleep(ms) {
+     	return new Promise(resolve => setTimeout(resolve, ms));
+     }
+     function updateTable(time, jobQueue, memory, jobTime) {
+     	$("#counter").html(time)
+     	$("#tableBody").empty()
+    
+     		for(var i = 0; i < memory.length; i++) {
+     			var job = jobQueue[i]
+     			if(!job) { //default value
+     				job = {
+     					number:'',
+     					size:''
+     				}
+     			}
+     			console.log(job)
+     			var tr = document.createElement('tr')
+     			$(tr).append('<th scope = "row">'+ memory[i].number + 'K</th>')//name
+     			$(tr).append('<td>'+ memory[i].size + 'K</td>') //size
+     			$(tr).append('<td>'+ job.number + '</td>') //name
+     			$(tr).append('<td>'+ job.size + 'K</d>') //size
+     			$(tr).append('<td>'+ jobTime[i] + 's</d>') //time remaining
+     			$("#tableBody").append(tr)
+
+     		}
+        	
+      
+     }
+ }
+</script>
+</html>
