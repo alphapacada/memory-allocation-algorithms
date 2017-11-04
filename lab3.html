@@ -11,46 +11,102 @@
         .autoPadding {
         	margin: 15px
         }
+        .background-black {
+            background-color: #1B1B1B;
+        }
+        .green, th {
+             color: #1ED760;
+        }
+        .grey {
+            background-color: #181818;
+        }
+        h2,h3,h4,h5 {
+            color:#FFFFFF;
+        }
+        td {
+            color : #ecebe8;
+        }
+        h1 {
+            color:#FF9800;
+        }
+        body, pre {
+            color:#FF9800;
+        }
+        .extra > div {
+            font-size: 12px;
+        }
 
 	</style>
 	<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
 </head>
 <body>
 
-	<div class = "row" id="page-wrapper">
+	<div class = "row background-black" id="page-wrapper">
 		<br>
-        <h1 class = "col-md-12 text-center" style = "height: 100px; ">Placement Policies</h1>
+        <h2 class = "col-md-12 text-center" style = "height: 100px; margin-top: 50px">Placement Policies</h2>
         <br>
-        <div class = "col-3">
+        
+        
+     
+         <div class = "row col-12" >
+            <div class = "row col-6 grey" style = "padding: 20px, 0px, 20px, 0px !important">
+                <div class = "col-6">
             Upload Job list: 
             <input type="file" id="fileInput">
         </div>
        
-        <div class = "col-3">
+        <div class = "col-6">
             Upload Memory list: 
             <input type="file" id="fileInput2">
         </div>
-        
-     
-         <div class = "row col-12">
-        	<div class="col-3"> side a
-	  			<div class="card-header">
-				    Job List
-				  </div>
-				  <div class="card-block scroll-box">
-				    
-				     <pre id = "fileDisplayArea"></pre>
-				  </div>
-			</div>
-			<div class="col-3"> side b
-	  			<div class="card-header" >
-				    Memory List
-				  </div>
-				  <div class="card-block scroll-box">
-				    
-				     <pre id = "fileDisplayArea2"></pre>
-				  </div>
-			</div>
+                <div class="col-6"> 
+                <div class="card-header">
+                    <strong>Job List</strong>
+                  </div>
+                  <div class="card-block scroll-box">
+                    
+                     <pre id = "fileDisplayArea"></pre>
+                  </div>
+            </div>
+            <div class="col-6">
+                <div class="card-header" >
+                    <strong>Memory List</strong>
+                  </div>
+                  <div class="card-block scroll-box">
+                    
+                     <pre id = "fileDisplayArea2"></pre>
+                  </div>
+            </div>
+            <div class= "extra row col-12">
+
+                <strong class = "col-6">Throughput: </strong>
+                <div id = "throughput" class = "col-6">
+
+                </div>
+                <strong class = "col-6">Storage Utilization:</strong>
+                <div id = "storageUtil" class = "col-6">
+
+                </div>
+                <strong class = "col-6">Waiting queue:</strong>
+                <div id = "waiting" class = "col-6">
+                
+                </div>
+          
+                <strong class = "col-6">Completed Processes:</strong>
+                 <div id = "completed" class = "col-6">
+
+                </div>
+
+                <strong  class = "col-6">Internal Fragmentation:</strong>
+                  <div id = "internalFrag" class = "col-6">
+
+                </div>
+            </div>
+        </div>
+
+           
+           
+        	
 			 <div class=" col-6">
         			<div class = "row col-12">
         			<span class="col-6">
@@ -64,7 +120,7 @@
 			 
    
 			<div class = "col-12" id = "tableContainer">
-					<table id = "memTable" class="table table-inverse">
+					<table id = "memTable" class="table grey">
 						<thead id ="tableHead">
 							<tr>
 								<th>Memory Partition</th>
@@ -72,11 +128,13 @@
 								<th>Job Number</th>
 								<th>Job Size</th>
 								<th>Time Remaining</th>
+                                <th>Internal Fragmentation</th>
 							</tr>
 						</thead>
 						<tbody id = "tableBody"></tbody>
 					</table>
 			</div>
+
 	   </div>
         </div>
        
@@ -96,9 +154,12 @@ window.onload = function() {
         var jobQueue = []
      	var assignedProcesses = []
      	var finishedProcesses = 0
+        var completedProcesses = []
+        var queuedProcesses = []
      	var buffer = []
      	var time
      	var SPEED = 1000
+        const MEMSIZE = 50000
      	var state = false
           var re = /\s+/
            //var state = 0
@@ -199,7 +260,10 @@ window.onload = function() {
       					var job = {
       						number : parseInt(word[0]),
       						time : parseInt(word[1]),
-      						size : parseInt(word[2])
+      						size : parseInt(word[2]),
+                            waitingTime : 0 ,
+                            assigned : false,
+                            finished : false,
 
       					}
 
@@ -212,7 +276,11 @@ window.onload = function() {
       					word = word.split(re)
       					var block = {
       						number : word[0],
-      						size : word[1]
+      						size : word[1],
+                            allocated : false,
+                            intFragmentation: word[1]
+
+
 
       					}
 
@@ -222,274 +290,159 @@ window.onload = function() {
          }
      }
 
-   async function firstFit(memory, jobStream) {
-     	//i - jobStream counter
-     	
-     	time = 0 
-     	var x = 0
-     	var i = 0
-     	var assigned = false
-     	var excess = 0
-     	
-     	SPEED = 1000
-     	var memoryCopy = memory.concat().sort(sortOnSize)
-     	for(var i = 0; i < jobStream.length; i++) {
-     		if(jobStream[i].size > memoryCopy[memoryCopy.length - 1].size) {
-     			console.log("" + jobStream[i].size  + ">" + memoryCopy[memoryCopy.length -1].size)
-     			excess++
-     		}
-     	}
-
-     	//for(var i = 0; i < jobStream.length; i++) {
-     //	while(i < jobStream.length) {
-     		//if(state) {
-
-     	//console.log("jobStream.length = " + jobStream.length)
-     	while(finishedProcesses < jobStream.length - excess) {
-
-     		i = 0
-     		while(i < jobStream.length) {
-     		//	console.log("finishedProcesses " + finishedProcesses[i])
-     			
-     			if(!assignedProcesses[i]) {
-     			/*	console.log("current index = " + i)
-	     			console.log("looping through buffer")*/
-	     			for(var ctr = 0; ctr < buffer.length; ctr++) {
-
-	     				var unassignedJob = buffer[ctr]
-	     				//console.log("unassignedJob.number = " + unassignedJob.number)
-	     				if(assignJob(unassignedJob.number-1)==true) {
-	     					//finishedProcesses++
-	     					//console.log("buffer job " + unassignedJob.number + " is finally allocated memory.")
-	     					buffer.splice(unassignedJob.number-1) //remove from buffer if it is allocated with memory
-	     				}
-	     				
-	     				
-	     			}
-	     			//console.log("now check next index")
-	     			if(assignJob(i)==false) { //if next job is not allocated memory, add it to buffer
-	     				//console.log("job " + i + "is not assigned so add to buffer")
-	     				buffer.push( jobStream[ i ] ) 
-	     			}else {
-	     				//console.log("job " + i + "is allocated memory.")
-	     				//finishedProcesses++
-	     			}
-	     			
-	     			
-			 	}
-			 	i++ //move to the next job
-			 }
-			 	jobTime = updateRemainingTime(jobTime) //decrease time for occupying job
-				time ++
-	     		updateTable(time, jobQueue, memory, jobTime)
-				await sleep(SPEED)
-			 	
-			 	console.log("" + finishedProcesses +" == " + jobStream.length)
-	     		
-     			}
-     			
-     			
-     		
-     			
+     function throughput() {
+        var counter = 0;
+        for(var i = 0; i < jobTime.length; i++) {
+            if(jobTime[i]) {
+                if(jobTime[i].number != null) counter++;
+            }
+        }
+        return "" + counter + " jobs per second."
      }
- 
-     			
-     
-     async function assignJob (i) {
-     	var j = 0
-     	var assigned = false
+     function memoryStatus() {
+        var throughput = $("#throughput")
+        var internalFrag = $("#internalFrag")
+        var storageUtil = $("#storageUtil")
+    
+      
+        var totalFrag = 0;
+        var counter = 0;
+        var totalSize = 0;
 
-     	while (j < memory.length) {
-     		if(!jobTime[j]) {
-		     	jobTime[j] = {
-		     		time: 0,
-		     		number: null
-		     	}
-		     } 
- 			if(jobTime[j].time == 0) { //no job exists
- 				//console.log(" " + memory[j].size + " >= " + jobStream[i].size + " ?")
- 				if(jobStream[i].size <= memory[j].size) {
- 					//console.log("yes!")
- 				}
-	 			if(memory[j].size >= jobStream[i].size) { //check if memory can accommodate 
-	 				assignedProcesses[i] = jobStream[i]
-	 				//console.log("job" + jobStream[i].size + "can be assigned to memory " + memory[j].size)
-	 				assigned = true
-	 				x = j
-	 				jobQueue[j] = jobStream[i]
-	 				jobTime[j].time = jobStream[i].time
-	 				jobTime[j].number = jobStream[i].number
-	 				break;
-					}
-			}
-     	j++
-     	
-		
+        throughput.empty();
+        internalFrag.empty();
+        storageUtil.empty();
+
+        for(var i = 0; i < jobTime.length; i++) {
+            if(jobTime[i]) {
+                if(jobTime[i].number != null) {
+                    counter++;
+                    totalFrag+= memory[i].intFragmentation
+                    totalSize+= jobTime[i].size
+                   
+                }
+            }
+        }
+        var used = totalSize / MEMSIZE * 100 
+        var unused = (MEMSIZE - totalSize)  / MEMSIZE * 100
+
+        throughput.append("" + counter + " jobs per second.")
+        internalFrag.append(totalFrag)
+        storageUtil.append("Used: " + used + " Unused: "  + unused )
+
+       
      }
+    
+     function jobStatus() {
+        var waiting = 0
+        var waitingProcesses = $("#waiting")
+       //var waitingLength = $("#waitingLength")
+        waitingProcesses.empty()
+        //waitingLength.empty()
+        var completed = $("#completed")
+       // assignedProcesses.empty();
+       completed.empty();
+        
+        for(var i  = 0; i < jobStream.length; i++) {
+            if(jobStream[i].assigned == false) {
+                waitingProcesses.append("Job " + jobStream[i].number + "<br>")
+                waiting++
+            } else {
+                if(jobStream[i].finished == true)
+               // assignedProcesses.append("Job " + jobStream[i] + " waiting time: " + jobStream[i].waitingTime +"\n") 
+                completed.append("Job " + jobStream[i].number + "    waiting time: " + jobStream[i].waitingTime +"<br>") 
+            }
+        }
+        waitingProcesses.append(" (" + waiting + ")")
 
+     }
    
-     return assigned;
-     
+    function firstFit(memory, jobStream) {
+     	//i - jobStream counter
+     	placementAlgorithm(memory, jobStream)
+     	
+     }	
+     function bestFit(memory, jobStream) {
+        sortedMemory = JSON.parse(JSON.stringify(memory)).sort(sortOnSize)
+        placementAlgorithm(sortedMemory, jobStream)
+     }
+     function worstFit(memory, jobStream) {
+        sortedMemory = JSON.parse(JSON.stringify(memory)).sort(sortOnSizeDec)
+        placementAlgorithm(sortedMemory, jobStream)
 
+     }
+     async function placementAlgorithm(memory, jobStream) {
+        time = 0 
+        var x = 0
+        var i = 0
+        var assigned = false
+        var excess = 0
+        
+        SPEED = 1000
+        var memoryCopy = memory.concat().sort(sortOnSize)
+        for(var i = 0; i < jobStream.length; i++) {
+            if(jobStream[i].size > memoryCopy[memoryCopy.length - 1].size) {
+                excess++
+            }
+        }
 
- }
- async function assignJob2 (i) {
+        while(finishedProcesses < jobStream.length - excess) {
+            i = 0
+            while(i < jobStream.length) {
+                console.log("" + i + "," + jobStream[i].assigned)
+                if(jobStream[i].assigned == false) {
+                   for(var ctr = 0; ctr < buffer.length; ctr++) {
+                        var unassignedJob = buffer[ctr]
+                        if(assignJob(unassignedJob.number-1, memory)==true) {
+                            buffer.splice(unassignedJob.number-1) //remove from buffer if it is allocated with memory
+                            jobStream[i].waitingTime = time
+                        }   
+                    }   
+                    if(assignJob(i, memory)==false) { //if next job is not allocated memory, add it to buffer
+                        buffer.push( jobStream[ i ] ) 
+                    } else {
+                        jobStream[i].waitingTime = time
+                    }  
+                }
+                i++ //move to the next job
+            }
+            jobTime = updateRemainingTime(jobTime) //decrease time for occupying job
+            time ++
+            updateTable(time)
+            await sleep(SPEED)
+        }
+     }
+
+     async function assignJob (i, memArr) {
+        var idx
      	var j = 0
      	var assigned = false
-
-     	console.log(sortedMemory.length)
-     	while (j < sortedMemory.length) {
-     		var origIdx = sortedMemory[j].number-1
-     		if(!jobTime[origIdx]) {
-		     	jobTime[origIdx] = {
+     	while (j < memArr.length) {
+            if(memArr == sortedMemory) {
+                idx = sortedMemory[j].number - 1
+            } else {
+                idx = j
+            }
+     		if(!jobTime[idx]) {
+		     	jobTime[idx] = {
 		     		time: 0,
 		     		number: null
+
 		     	}
 		     } 
- 			if(jobTime[origIdx].time == 0) { //no job exists
- 				//console.log(" " + memory[j].size + " >= " + jobStream[i].size + " ?")
- 				if(jobStream[i].size <= memory[j].size) {
- 					//console.log("yes!")
- 				}
-	 			if(sortedMemory[j].size >= jobStream[i].size) { //check if memory can accommodate 
-	 				assignedProcesses[i] = jobStream[i]
-	 				//console.log("job" + jobStream[i].size + "can be assigned to memory " + memory[j].size)
-	 				console.log("" +sortedMemory[j].size + " = " + memory[sortedMemory[j].number -1].size)
-	 				assigned = true
-	 				x = j
-	 				jobQueue[origIdx] = jobStream[i]
-	 				jobTime[origIdx].time = jobStream[i].time
-	 				jobTime[origIdx].number = jobStream[i].number
+ 			if(jobTime[idx].time == 0) { //no job exists
+	 			if(memArr[j].size >= jobStream[i].size) { //check if memory can accommodate 
+
+	 				allocateMemory(i, idx)
+                    assigned = true
 	 				break;
-					}
+				}
 			}
-     	j++
-     	
-		
-     }
-     return assigned;
- }
+     	    j++	
+        }
+        return assigned;
+    }
 
-
-     async function bestFit(memory, jobStream) {
-     	//offset -->  current Index of memory
-     	var assignedJob = []
-     	var offset = 0
-     	sortedMemory = JSON.parse(JSON.stringify(memory)).sort(sortOnSize)
-     	console.log(sortedMemory)
-     	
-     	time = 0 
-     	var x = 0
-     	var i = 0
-     	var assigned = false
-     	var excess = 0
-     	
-     	SPEED = 1000
-     	var memoryCopy = memory.concat().sort(sortOnSize)
-     	for(var i = 0; i < jobStream.length; i++) {
-     		if(jobStream[i].size > memoryCopy[memoryCopy.length - 1].size) {
-     			console.log("" + jobStream[i].size  + ">" + memoryCopy[memoryCopy.length -1].size)
-     			excess++
-     		}
-     	}
-     	while(finishedProcesses < jobStream.length - excess) {
-
-     		i = 0
-     		while(i < jobStream.length) {
-     		//	console.log("finishedProcesses " + finishedProcesses[i])
-     			
-     			if(!assignedProcesses[i]) {
-     			/*	console.log("current index = " + i)
-	     			console.log("looping through buffer")*/
-	     			for(var ctr = 0; ctr < buffer.length; ctr++) {
-
-	     				var unassignedJob = buffer[ctr]
-	     				//console.log("unassignedJob.number = " + unassignedJob.number)
-	     				if(assignJob2(unassignedJob.number-1)==true) {
-	     					//finishedProcesses++
-	     					//console.log("buffer job " + unassignedJob.number + " is finally allocated memory.")
-	     					buffer.splice(unassignedJob.number-1) //remove from buffer if it is allocated with memory
-	     				}
-	     				
-	     				
-	     			}
-	     			if(assignJob2(i)==false) { 
-	     				buffer.push( jobStream[ i ] ) 
-	     			}else {
-	     			}
-
-			 	}
-			 	i++ //move to the next job
-			 }
-			 	jobTime = updateRemainingTime(jobTime) //decrease time for occupying job
-				time ++
-	     		updateTable(time, jobQueue, memory, jobTime)
-				await sleep(SPEED)
-			 	
-			 
-     			}
-     			
-     			
- }
- async function worstFit() {
- 	var assignedJob = []
-     	var offset = 0
-     	sortedMemory = JSON.parse(JSON.stringify(memory)).sort(sortOnSizeDec)
-     	console.log(sortedMemory)
-     	
-     	time = 0 
-     	var x = 0
-     	var i = 0
-     	var assigned = false
-     	var excess = 0
-     	
-     	SPEED = 1000
-     	var memoryCopy = memory.concat().sort(sortOnSize)
-     	for(var i = 0; i < jobStream.length; i++) {
-     		if(jobStream[i].size > memoryCopy[memoryCopy.length - 1].size) {
-     			console.log("" + jobStream[i].size  + ">" + memoryCopy[memoryCopy.length -1].size)
-     			excess++
-     		}
-     	}
-     	while(finishedProcesses < jobStream.length - excess) {
-
-     		i = 0
-     		while(i < jobStream.length) {
-     		//	console.log("finishedProcesses " + finishedProcesses[i])
-     			
-     			if(!assignedProcesses[i]) {
-     			/*	console.log("current index = " + i)
-	     			console.log("looping through buffer")*/
-	     			for(var ctr = 0; ctr < buffer.length; ctr++) {
-
-	     				var unassignedJob = buffer[ctr]
-	     				//console.log("unassignedJob.number = " + unassignedJob.number)
-	     				if(assignJob2(unassignedJob.number-1)==true) {
-	     					//finishedProcesses++
-	     					//console.log("buffer job " + unassignedJob.number + " is finally allocated memory.")
-	     					buffer.splice(unassignedJob.number-1) //remove from buffer if it is allocated with memory
-	     				}
-	     				
-	     				
-	     			}
-	     			if(assignJob2(i)==false) { 
-	     				buffer.push( jobStream[ i ] ) 
-	     			}else {
-	     			}
-
-			 	}
-			 	i++ //move to the next job
-			 }
-			 	jobTime = updateRemainingTime(jobTime) //decrease time for occupying job
-				time ++
-	     		updateTable(time, jobQueue, memory, jobTime)
-				await sleep(SPEED)
-			 	
-			 
-     			}
-     			
-     			
- }
     var sortOnOrder = function (a,b) {
     	return a.number - b.number
     }
@@ -502,29 +455,46 @@ window.onload = function() {
      function updateRemainingTime(jobTime) {
 
      	for(var i = 0; i < jobTime.length; i++) {
-     		if(jobTime[i].time >0) {
-     			jobTime[i].time --		
+     		if(jobTime[i].time >0) { //there is an occupying process which still hasn't finished executing 
+     			jobTime[i].time --	//decrease burst time
      		} 
-     		if(jobTime[i].time == 0 && jobTime[i].number!=null) {
-     				finishedProcesses++
-     				jobTime[i].number = null
+     		if(jobTime[i].time == 0 && jobTime[i].number!=null) { //free memory block from job
+                    var idx = jobTime[i].number-1
+                   // completedProcesses.push(queuedProcesses[idx])
+                   // queuedProcesses[idx] = null;
+                   jobStream[idx].finished = true
+     				freeMemory(i)
      		}
      	}
      	return jobTime
      }
-     function decreaseRemainingTime(job) {
-     	if(job.time > 0) {
-     		job.time--
+     // i = index of job chosen from queue
+     // origIdx = index of memory block
+     function allocateMemory(i, idx) {
+        memory[idx].allocated = true;
 
-     	}
-     	
-     	
-     	return job
+        //assignedProcesses[i] = jobStream[i]
+        //assigned = true;
+        jobQueue[idx] = jobStream[i]
+        jobTime[idx].time = jobStream[i].time
+        jobTime[idx].number = jobStream[i].number
+        jobTime[idx].size = jobStream[i].size
+        memory[idx].intFragmentation = memory[idx].size - jobStream[i].size
+        jobTime[idx].usedSpace = jobStream[i].size
+        jobStream[i].assigned = true
+
+
+     }
+     function freeMemory(origIdx) {
+        memory[origIdx].allocated = false
+        finishedProcesses++ //increment number of finished processes
+        jobQueue[origIdx] = null
+        jobTime[origIdx].number = null //free process from block
      }
      function sleep(ms) {
      	return new Promise(resolve => setTimeout(resolve, ms));
      }
-     function updateTable(time, jobQueue, memory, jobTime) {
+     function updateTable(time) {
      	$("#counter").html(time)
      	$("#tableBody").empty()
     
@@ -533,20 +503,23 @@ window.onload = function() {
      			if(!job) { //default value
      				job = {
      					number:'',
-     					size:''
+     					size:'',
+
      				}
-     			}
+     			} 
      			//console.log(job)
      			var tr = document.createElement('tr')
-     			$(tr).append('<th scope = "row">'+ memory[i].number + 'K</th>')//name
+     			$(tr).append('<th scope = "row">'+ memory[i].number + '</th>')//name
      			$(tr).append('<td>'+ memory[i].size + 'K</td>') //size
      			$(tr).append('<td>'+ job.number + '</td>') //name
-     			$(tr).append('<td>'+ job.size + 'K</d>') //size
-     			$(tr).append('<td>'+ jobTime[i].time + 's</d>') //time remaining
+     			$(tr).append('<td>'+ (job.size == ''? '': (job.size +'K')) + '</td>') //size
+     			$(tr).append('<td>'+ (jobTime[i].time ==''? '': (jobTime[i].time + 's'))+'</td>') //time remaining
+                $(tr).append('<td>'+ (jobTime[i].time == ''? '': memory[i].intFragmentation + 'K')+ '</td>')
      			$("#tableBody").append(tr)
 
      		}
-        	
+        	memoryStatus()
+            jobStatus()
       
      }
  }
